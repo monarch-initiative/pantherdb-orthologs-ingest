@@ -61,7 +61,7 @@ def ncbi_gene_info_path():
     """
     :return: string of path to gaf-eco-mappings.txt file
     """
-    return "./data/gene_info.gz"
+    return "./tests/test_ncbi_gene_info.txt.gz"
 
 
 @pytest.fixture
