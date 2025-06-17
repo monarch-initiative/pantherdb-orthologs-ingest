@@ -49,10 +49,8 @@ db_to_curie_map = {"HGNC":"HGNC",
                    "PomBase":"PomBase",
                    "Xenbase":"Xenbase",
                    
-                   "FlyBase":"FB",      # Needs altering 
-                   "WormBase":"WB",     # Wormbase supports 'WormBase:' but alliancegenome.org and identifiers.org supports 'WB:'
-                   
-                   "GeneID": "NCBIGene", # seems to be Entrez Gene ID => map onto the NCBIGene: namespace
+                   "FlyBase":"FB",      
+                   "WormBase":"WB",     
                    "Ensembl": "ENSEMBL"}
                    #"EnsemblGenome": "ENSEMBL",    # TO DO: Needs reviewing still if we need to map to ncbi or ensembl
 
@@ -103,7 +101,12 @@ def make_ncbi_taxon_gene_map(gene_info_file: str, relevant_columns: list, taxon_
                 # (minority, not majority have this in them)
                 mk_cols = map_key.split("|")
                 for key_to_ncbi in mk_cols:
-                
+                    
+                    # Deal with entries like MGI:MGI:95886, where we want to remove one of the MGI: prefix
+                    key_split = key_to_ncbi.split(":")
+                    if key_split[0] == key_split[1]:
+                        key_to_ncbi = "{}:{}".format(key_split[0], key_split[-1])
+
                     if key_to_ncbi not in taxa_gene_map[tx_id]:
                         taxa_gene_map[tx_id].update({key_to_ncbi:ncbi_gene_id})
                     else:
@@ -143,7 +146,6 @@ def parse_gene_info(gene_info, taxon_map, curie_map, fallback_map):
     # Now assign our gene to its "rightful" prefix... If no reasonable prefix exists (HGNC, MGI, etc.),
     # then we use the UniprotKB ID prefix as a fallback. Connections can be rescued through 
     # normalization process via uniprotkb protein ids
-    
     
     # Our prefered order, is Organism specific (HGNC, PomBase, ZFIN)
     taxon_id = taxon_map[species]
