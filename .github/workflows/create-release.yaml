@@ -34,7 +34,6 @@ jobs:
         run: poetry install --no-interaction
 
       - name: Run Tests
-        run: make download
         run: make test
 
       - name: Run Transform
