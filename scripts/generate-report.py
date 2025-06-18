@@ -2,8 +2,12 @@ from pathlib import Path
 
 import duckdb
 
-nodes_file = "output/pantherdb_gene to gene orthology_nodes.tsv"
-edges_file = "output/pantherdb_gene to gene orthology_edges.tsv"
+
+nodes_file =   "output/pantherdb_orthologs_nodes.tsv"
+nodes_report = "output/pantherdb_orthologs_nodes_report.tsv"
+
+edges_file =   "output/pantherdb_orthologs_edges.tsv"
+edges_report = "output/pantherdb_orthologs_edges_report.tsv"
 
 
 # Nodes
@@ -14,7 +18,8 @@ if Path(nodes_file).exists():
     GROUP BY all
     ORDER BY all
     """
-    duckdb.sql(f"copy ({query}) to 'output/pantherdb_gene to gene orthology_nodes_report.tsv' (header, delimiter '\t')")
+    duckdb.sql("copy ({}) to '{}' (header, delimiter '\t')".format(query, nodes_report))
+    #duckdb.sql(f"copy ({query}) to 'output/pantherdb_gene to gene orthology_nodes_report.tsv' (header, delimiter '\t')")
 
 # Edges
 if Path(edges_file).exists():
@@ -25,4 +30,6 @@ if Path(edges_file).exists():
     GROUP BY all
     ORDER BY all
     """
-    duckdb.sql(f"copy ({query}) to 'output/pantherdb_gene to gene orthology_edges_report.tsv' (header, delimiter '\t')")
+
+    duckdb.sql("copy ({}) to '{}' (header, delimiter '\t')".format(query, edges_report))
+    #duckdb.sql(f"copy ({query}) to 'output/pantherdb_gene to gene orthology_edges_report.tsv' (header, delimiter '\t')")

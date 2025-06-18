@@ -52,7 +52,11 @@ db_to_curie_map = {"HGNC":"HGNC",
                    "FlyBase":"FB",      
                    "WormBase":"WB",     
                    "Ensembl": "ENSEMBL"}
-                   #"EnsemblGenome": "ENSEMBL",    # TO DO: Needs reviewing still if we need to map to ncbi or ensembl
+
+                   ## For future reference... Genes with this prefix (EnsembleGenome) appear to be in the symbol name space... 
+                   ## Rather than ENSEMBL gene name space (i.e ENS0000123..))
+                   ## So we simply use the gene name as is and attempt to map back to ncbi gene id, and uniprot as fallback
+                   ##"EnsemblGenome": "ENSEMBL"}
 
 # Used in make_ncbi_taxon_gene_map function to filter for only species we are interested in
 relevant_ncbi_taxons = {v:'' for v in panther_taxon_map.values()} 
