@@ -30,7 +30,7 @@ def source_name():
     """
     :return: string name of ingest source found within transform yaml
     """
-    return "pantherdb_orthologs"
+    return "panther_genome_orthologs"
 
 
 @pytest.fixture
