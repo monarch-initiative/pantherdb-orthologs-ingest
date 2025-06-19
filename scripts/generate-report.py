@@ -3,11 +3,11 @@ from pathlib import Path
 import duckdb
 
 
-nodes_file =   "output/pantherdb_orthologs_nodes.tsv"
-nodes_report = "output/pantherdb_orthologs_nodes_report.tsv"
+nodes_file =   "output/panther_genome_orthologs_nodes.tsv"
+nodes_report = "output/panther_genome_orthologs_nodes_report.tsv"
 
-edges_file =   "output/pantherdb_orthologs_edges.tsv"
-edges_report = "output/pantherdb_orthologs_edges_report.tsv"
+edges_file =   "output/panther_genome_orthologs_edges.tsv"
+edges_report = "output/panther_genome_orthologs_edges_report.tsv"
 
 
 # Nodes

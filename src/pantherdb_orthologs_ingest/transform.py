@@ -15,7 +15,7 @@ from panther_orthologs_utils import (panther_taxon_map, relevant_ncbi_cols, rele
 
 
 # Initiate koza app prior to readinging in gene map
-koza_app = get_koza_app("pantherdb_orthologs")
+koza_app = get_koza_app("panther_genome_orthologs")
 
 # Custom function to make a mapping of of taxon specific gene identifiers --> ncbi gene identifiers
 ncbi_map_file = "./data/gene_info.gz"

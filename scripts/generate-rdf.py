@@ -4,12 +4,12 @@ from kgx.cli.cli_utils import transform as kgx_transform
 from loguru import logger
 
 
-out_report = "output/pantherdb_orthologs.nt.gz"
+out_report = "output/panther_genome_orthologs.nt.gz"
 logger.info("Creating rdf output: {}...".format(out_report))
 
 src_files = []
-src_nodes = "output/pantherdb_orthologs_nodes.tsv"
-src_edges = "output/pantherdb_orthologs_edges.tsv"
+src_nodes = "output/panther_genome_orthologs_nodes.tsv"
+src_edges = "output/panther_genome_orthologs_edges.tsv"
 
 if Path(src_nodes).is_file():
     src_files.append(src_nodes)

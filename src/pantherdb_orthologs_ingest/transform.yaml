@@ -1,4 +1,4 @@
-name: 'pantherdb_orthologs'
+name: 'panther_genome_orthologs'
 format: 'csv'
 delimiter: '\t'
 header: none
