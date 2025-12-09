@@ -46,8 +46,8 @@ while (row := koza_app.get_row()) is not None:
     panther_ortholog_id = row["Panther Ortholog ID"]
     predicate = "biolink:orthologous_to"
 
-    # Generate our association object
-    association = GeneToGeneHomologyAssociation(id="uuid:{}".format(str(uuid.uuid1())),
+    # Generate our association object (uuid4 used for reliable uniqueness across environments)
+    association = GeneToGeneHomologyAssociation(id="uuid:{}".format(str(uuid.uuid4())),
                                                 subject=gene_a,
                                                 object=gene_b,
                                                 predicate=predicate,
