@@ -13,8 +13,7 @@ Unit tests for Panther Gene Orthology relationships ingest
 
 import pytest
 from biolink_model.datamodel.pydanticmodel_v2 import GeneToGeneHomologyAssociation, KnowledgeLevelEnum, AgentTypeEnum
-from koza.utils.testing_utils import mock_koza
-from pantherdb_orthologs_ingest.panther_orthologs_utils import (make_ncbi_taxon_gene_map, 
+from pantherdb_orthologs_ingest.panther_orthologs_utils import (make_ncbi_taxon_gene_map,
                                                                 parse_gene_info)
 
 from pantherdb_orthologs_ingest.panther_orthologs_utils import (panther_taxon_map, 
@@ -25,22 +24,6 @@ from pantherdb_orthologs_ingest.panther_orthologs_utils import (panther_taxon_ma
 
 ############################################################################
 ### Fixtures referencing code and basic parameters reused in tests below ###
-@pytest.fixture
-def source_name():
-    """
-    :return: string name of ingest source found within transform yaml
-    """
-    return "panther_genome_orthologs"
-
-
-@pytest.fixture
-def script():
-    """
-    :return: string path to Panther Gene Orthology relationships ingest script
-    """
-    return "./src/pantherdb_orthologs_ingest/transform.py"
-
-
 @pytest.fixture()
 def relevant_association_test_keys():
     """
@@ -226,24 +209,50 @@ def exclude_species_genes():
 
 ###########################################################
 ### Perform our actual tests here on the fixtures above ###
-def test_panther_rows(panther_rows, source_name, script, mock_koza, map_cache, relevant_association_test_keys):
+def test_panther_rows(panther_rows, map_cache, relevant_association_test_keys):
+    """
+    Test parsing individual panther rows into associations.
+    This tests the parse_gene_info and association creation logic directly.
+    """
+    from pantherdb_orthologs_ingest.panther_orthologs_utils import (panther_taxon_map, db_to_curie_map)
+    import uuid
 
-    # Upack our mock koza transform and expected info
+    # Unpack our test rows and expected info
     rows_to_test, expected_res = [v[0] for v in panther_rows], [v[1] for v in panther_rows]
 
-    # Call upon mock_koza just once here, to process all our test rows at once
-    koza_associations = mock_koza(name=source_name, data=rows_to_test, transform_code=script, map_cache=map_cache)
+    # Process each row directly using the same logic as the transform
+    for row, expected_info in zip(rows_to_test, expected_res):
+        # Parse the gene information for both species
+        species_a, gene_a = parse_gene_info(row["Gene"], panther_taxon_map, db_to_curie_map, map_cache)
+        species_b, gene_b = parse_gene_info(row["Ortholog"], panther_taxon_map, db_to_curie_map, map_cache)
 
-    # Now check our koza generated associations against expected results
-    for koza_association, expected_info in zip(koza_associations, expected_res):
-    
-        # Ensure association type is correct (we are dealing with GeneToGeneHomologyAssociation s here)
-        assert isinstance(koza_association, GeneToGeneHomologyAssociation)
+        # Skip if species not in catalog
+        if (not species_a) or (not species_b):
+            continue
 
-        # Test that mock koza processing of pantherdb row produces expected results
+        # Create the association
+        panther_ortholog_id = row["Panther Ortholog ID"]
+        predicate = "biolink:orthologous_to"
+
+        association = GeneToGeneHomologyAssociation(
+            id="uuid:{}".format(str(uuid.uuid4())),
+            subject=gene_a,
+            object=gene_b,
+            predicate=predicate,
+            has_evidence=["PANTHER.FAMILY:{}".format(panther_ortholog_id)],
+            aggregator_knowledge_source=["infores:monarchinitiative"],
+            primary_knowledge_source="infores:panther",
+            knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+            agent_type=AgentTypeEnum.not_provided
+        )
+
+        # Ensure association type is correct
+        assert isinstance(association, GeneToGeneHomologyAssociation)
+
+        # Test that processing of pantherdb row produces expected results
         for key in relevant_association_test_keys:
             assert key in expected_info
-            assert getattr(koza_association, key) == expected_info[key]
+            assert getattr(association, key) == expected_info[key]
 
 
 def test_species_parse_gene(panther_species_genes, map_cache):

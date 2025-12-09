@@ -1,30 +1,36 @@
 name: 'panther_genome_orthologs'
-format: 'csv'
-delimiter: '\t'
-header: none
 
-# We expand the ingest to extract orthology data from target species extracted out of "All Orthologs"
-file_archive: 'data/AllOrthologs.tar.gz'
-files:
-  - 'AllOrthologs'
+reader:
+  name: 'panther_genome_orthologs_reader'
+  format: 'csv'
+  delimiter: '\t'
+  header_mode: 'none'
+  # We expand the ingest to extract orthology data from target species extracted out of "All Orthologs"
+  file_archive: '../../data/AllOrthologs.tar.gz'
+  files:
+    - 'AllOrthologs'
+  columns:
+    - 'Gene'                                 # species1|DB=id1|protdb=pdbid1
+    - 'Ortholog'                             # species2|DB=id2|protdb=pdbid2
+    - 'Type of ortholog'                     # [LDO, O, P, X ,LDX], Currently unused
+    - 'Common ancestor for the orthologs'    # unused
+    - 'Panther Ortholog ID'                  # panther prtotein family ID
 
-columns:
-  - 'Gene'                                 # species1|DB=id1|protdb=pdbid1
-  - 'Ortholog'                             # species2|DB=id2|protdb=pdbid2
-  - 'Type of ortholog'                     # [LDO, O, P, X ,LDX], Currently unused
-  - 'Common ancestor for the orthologs'    # unused
-  - 'Panther Ortholog ID'                  # panther prtotein family ID
+transform:
+  name: 'panther_genome_orthologs_transform'
+  mode: 'flat'
 
-edge_properties:
-  - 'id'
-  - 'category'
-  - 'subject'
-  - 'predicate'
-  - 'object'
-  - 'has_evidence'
-  - 'aggregator_knowledge_source'
-  - 'primary_knowledge_source'
-  - 'knowledge_level'
-  - 'agent_type'
-
-transform_mode: 'flat'
+writer:
+  name: 'panther_genome_orthologs_writer'
+  node_properties: []
+  edge_properties:
+    - 'id'
+    - 'category'
+    - 'subject'
+    - 'predicate'
+    - 'object'
+    - 'has_evidence'
+    - 'aggregator_knowledge_source'
+    - 'primary_knowledge_source'
+    - 'knowledge_level'
+    - 'agent_type'
