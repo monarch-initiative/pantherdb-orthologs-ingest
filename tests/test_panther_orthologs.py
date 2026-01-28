@@ -10,37 +10,73 @@ https://koza.monarchinitiative.org/Usage/testing/
 Unit tests for Panther Gene Orthology relationships ingest
 """
 
+import importlib.util
+from pathlib import Path
+from collections.abc import Iterable
 
 import pytest
 from biolink_model.datamodel.pydanticmodel_v2 import GeneToGeneHomologyAssociation, KnowledgeLevelEnum, AgentTypeEnum
-from koza.utils.testing_utils import mock_koza
-from pantherdb_orthologs_ingest.panther_orthologs_utils import (make_ncbi_taxon_gene_map, 
-                                                                parse_gene_info)
+from koza.runner import KozaRunner, load_transform
+from koza.io.writer.writer import KozaWriter
+from panther_orthologs_utils import (
+    make_ncbi_taxon_gene_map,
+    parse_gene_info,
+    panther_taxon_map,
+    relevant_ncbi_cols,
+    relevant_ncbi_taxons,
+    db_to_curie_map,
+)
 
-from pantherdb_orthologs_ingest.panther_orthologs_utils import (panther_taxon_map, 
-                                                                relevant_ncbi_cols, 
-                                                                relevant_ncbi_taxons, 
-                                                                db_to_curie_map)
+# Path to the transform script
+TRANSFORM_SCRIPT = Path(__file__).parent.parent / "src" / "transform.py"
+
+
+class EntityCapturingWriter(KozaWriter):
+    """A writer that captures raw entities before serialization for testing."""
+
+    def __init__(self):
+        self.entities = []
+
+    def write(self, entities: Iterable):
+        # The entities passed here are already serialized tuples
+        # We need to intercept before this
+        pass
+
+    def write_nodes(self, nodes: Iterable):
+        pass
+
+    def write_edges(self, edges: Iterable):
+        pass
+
+    def finalize(self):
+        pass
+
+
+def load_module_from_path(path: Path):
+    """Load a Python module from a file path."""
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def run_transform(rows: list[dict], map_cache: dict) -> list:
+    """Run the transform on a list of rows and return the results."""
+    module = load_module_from_path(TRANSFORM_SCRIPT)
+    # Inject the test map cache into the transform module
+    module.set_tx_gmap(map_cache)
+
+    # Directly call the transform function to capture raw entities
+    results = []
+    for row in rows:
+        result = module.transform(None, row)  # koza_transform arg is not used
+        if result is not None:
+            results.append(result)
+    return results
 
 
 ############################################################################
 ### Fixtures referencing code and basic parameters reused in tests below ###
-@pytest.fixture
-def source_name():
-    """
-    :return: string name of ingest source found within transform yaml
-    """
-    return "panther_genome_orthologs"
-
-
-@pytest.fixture
-def script():
-    """
-    :return: string path to Panther Gene Orthology relationships ingest script
-    """
-    return "./src/pantherdb_orthologs_ingest/transform.py"
-
-
 @pytest.fixture()
 def relevant_association_test_keys():
     """
@@ -93,7 +129,7 @@ def panther_rows():
               "Type of ortholog": "LDO",  # [LDO, O, P, X ,LDX]  see: localtt
               "Common ancestor for the orthologs": "Euarchontoglires",  # unused
               "Panther Ortholog ID": "PTHR12434"},  # panther_id
-              
+
               {"subject": "HGNC:11477",
                 "object": "RGD:1564893",
                 "predicate": "biolink:orthologous_to",
@@ -102,14 +138,14 @@ def panther_rows():
                 "primary_knowledge_source": "infores:panther",
                 "knowledge_level": KnowledgeLevelEnum.knowledge_assertion,
                 "agent_type": AgentTypeEnum.not_provided}),
-            
+
             # Mouse and Schizosaccharomyces pombe ortholog row test
             ({"Gene":"MOUSE|MGI=MGI=2147627|UniProtKB=Q91WQ3",
               "Ortholog": "SCHPO|PomBase=SPAC30C2.04|UniProtKB=Q9P6K7",
-              "Type of ortholog": "LDO", 
+              "Type of ortholog": "LDO",
               "Common ancestor for the orthologs": "Opisthokonts",
               "Panther Ortholog ID": "PTHR11586"},
-             
+
              {"subject": "MGI:2147627",
               "object": "PomBase:SPAC30C2.04",
               "predicate": "biolink:orthologous_to",
@@ -122,10 +158,10 @@ def panther_rows():
             # Xenopus tropicalis and ceravisea ("yeast") ortholog row test
             ({"Gene": "XENTR|Xenbase=XB-GENE-957143|UniProtKB=Q6P335",
               "Ortholog": "YEAST|SGD=S000004439|UniProtKB=P32366",
-              "Type of ortholog": "O", 
+              "Type of ortholog": "O",
               "Common ancestor for the orthologs": "Opisthokonts",
               "Panther Ortholog ID": "PTHR11028"},
-    
+
             {"subject": "Xenbase:XB-GENE-957143",
              "object": "SGD:S000004439",
              "predicate": "biolink:orthologous_to",
@@ -138,10 +174,10 @@ def panther_rows():
             # Zebrafish and fly ortholog row test
             ({"Gene": "DANRE|ZFIN=ZDB-GENE-050417-421|UniProtKB=Q567X8",
               "Ortholog": "DROME|FlyBase=FBgn0002773|UniProtKB=P18432",
-              "Type of ortholog": "O", 
+              "Type of ortholog": "O",
               "Common ancestor for the orthologs": "Bilateria",
               "Panther Ortholog ID": "PTHR23049"},
-    
+
              {"subject": "ZFIN:ZDB-GENE-050417-421",
               "object": "FB:FBgn0002773",
               "predicate": "biolink:orthologous_to",
@@ -150,14 +186,14 @@ def panther_rows():
               "primary_knowledge_source": "infores:panther",
               "knowledge_level": KnowledgeLevelEnum.knowledge_assertion,
               "agent_type": AgentTypeEnum.not_provided}),
-            
+
             # C. elegans and Dictyostelium discoideum ortholog row test
             ({"Gene": "CAEEL|WormBase=WBGene00009059|UniProtKB=Q19739",
               "Ortholog": "DICDI|dictyBase=DDB_G0269178|UniProtKB=Q9GPS0",
-              "Type of ortholog": "O", 
+              "Type of ortholog": "O",
               "Common ancestor for the orthologs": "Unikonts",
               "Panther Ortholog ID": "PTHR24072"},
-    
+
              {"subject": "WB:WBGene00009059",
               "object": "dictyBase:DDB_G0269178",
               "predicate": "biolink:orthologous_to",
@@ -166,14 +202,14 @@ def panther_rows():
               "primary_knowledge_source": "infores:panther",
               "knowledge_level": KnowledgeLevelEnum.knowledge_assertion,
               "agent_type": AgentTypeEnum.not_provided}),
-            
+
             # Human Ensembl gene and mouse ortholog row test
             ({"Gene": "HUMAN|Ensembl=ENSG00000275949.5|UniProtKB=A0A0G2JMH3",
               "Ortholog": "MOUSE|MGI=MGI=99431|UniProtKB=P84078",
-              "Type of ortholog": "O", 
+              "Type of ortholog": "O",
               "Common ancestor for the orthologs": "Euarchontoglires",
               "Panther Ortholog ID": "PTHR11711"},
-    
+
              {"subject": "ENSEMBL:ENSG00000275949",
               "object": "MGI:99431",
               "predicate": "biolink:orthologous_to",
@@ -203,15 +239,15 @@ def panther_species_genes():
                      ["DROME|FlyBase=FBgn0010348|UniProtKB=P61209", {"FB:FBgn0010348":''}],
                      ["CAEEL|WormBase=WBGene00000446|UniProtKB=P34663", {"WB:WBGene00000446":''}],
                      ["DICDI|dictyBase=DDB_G0274381|UniProtKB=P54642", {"dictyBase:DDB_G0274381":''}],
-                     
+
                      # Aspergillus will be our test cases to ensure mapping back to NCBIGene is done properly
                      # and scenario where we use UniProtKB identifier instead
                      ["EMENI|Gene_ORFName=AN0062|UniProtKB=Q5BHB8", {"NCBIGene:ANIA_00062":'',
                                                                      "UniProtKB:Q5BHB8":''}],
 
-                     ["EMENI|EnsemblGenome=ANIA_08553|UniProtKB=Q5AT27", {"NCBIGene:2868830":'', 
+                     ["EMENI|EnsemblGenome=ANIA_08553|UniProtKB=Q5AT27", {"NCBIGene:2868830":'',
                                                                           "UniProtKB:Q5AT27":''}],
-                     
+
                      ["SCHPO|PomBase=SPAC13G7.02c|UniProtKB=Q10265", {"PomBase:SPAC13G7.02c":''}],
                      ["YEAST|SGD=S000003465|UniProtKB=P17442", {"SGD:S000003465":''}]]
 
@@ -226,21 +262,21 @@ def exclude_species_genes():
 
 ###########################################################
 ### Perform our actual tests here on the fixtures above ###
-def test_panther_rows(panther_rows, source_name, script, mock_koza, map_cache, relevant_association_test_keys):
+def test_panther_rows(panther_rows, relevant_association_test_keys, map_cache):
 
-    # Upack our mock koza transform and expected info
+    # Upack our test rows and expected info
     rows_to_test, expected_res = [v[0] for v in panther_rows], [v[1] for v in panther_rows]
 
-    # Call upon mock_koza just once here, to process all our test rows at once
-    koza_associations = mock_koza(name=source_name, data=rows_to_test, transform_code=script, map_cache=map_cache)
+    # Run the transform using the new KozaRunner pattern
+    koza_associations = run_transform(rows_to_test, map_cache)
 
     # Now check our koza generated associations against expected results
     for koza_association, expected_info in zip(koza_associations, expected_res):
-    
+
         # Ensure association type is correct (we are dealing with GeneToGeneHomologyAssociation s here)
         assert isinstance(koza_association, GeneToGeneHomologyAssociation)
 
-        # Test that mock koza processing of pantherdb row produces expected results
+        # Test that koza processing of pantherdb row produces expected results
         for key in relevant_association_test_keys:
             assert key in expected_info
             assert getattr(koza_association, key) == expected_info[key]
@@ -248,20 +284,20 @@ def test_panther_rows(panther_rows, source_name, script, mock_koza, map_cache, r
 
 def test_species_parse_gene(panther_species_genes, map_cache):
     for gene_info, expected in panther_species_genes:
-        species, gene_id = parse_gene_info(gene_info, 
-                                           panther_taxon_map, 
+        species, gene_id = parse_gene_info(gene_info,
+                                           panther_taxon_map,
                                            db_to_curie_map,
                                            map_cache)
-                                           
+
         # Assert that the parsed species and gene ID match the expected values
         assert species in panther_taxon_map
         assert gene_id in expected # Allows for muliple mapping values to be present
-        
+
 
 def test_exclude_species_parse_gene(exclude_species_genes, map_cache):
     for gene_info in exclude_species_genes:
-        species, gene_id = parse_gene_info(gene_info, 
-                                           panther_taxon_map, 
+        species, gene_id = parse_gene_info(gene_info,
+                                           panther_taxon_map,
                                            db_to_curie_map,
                                            map_cache)
 
