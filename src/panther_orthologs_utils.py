@@ -7,12 +7,12 @@ Utility functions for Panther Orthology data processing
 panther_taxon_map = {
     "HUMAN": "9606",
     "MOUSE": "10090",
-    "CANLF": "9615",   # Canis lupus familiaris - domestic dog
-    "BOVIN": "9913",   # Bos taurus - cow
-    "PIG": "9823",     # Sus scrofa - pig
+    "CANLF": "9615",  # Canis lupus familiaris - domestic dog
+    "BOVIN": "9913",  # Bos taurus - cow
+    "PIG": "9823",  # Sus scrofa - pig
     "RAT": "10116",
     "CHICK": "9031",
-    "XENTR": "8364",   # Xenopus tropicalis - tropical clawed frog
+    "XENTR": "8364",  # Xenopus tropicalis - tropical clawed frog
     "DANRE": "7955",
     "DROME": "7227",
     "CAEEL": "6239",
@@ -63,7 +63,7 @@ def parse_gene_info(gene_info, taxon_map, curie_map, fallback_map=None, koza_tra
         koza_transform: KozaTransform object for lookups via koza mappings (preferred)
     """
 
-    cols = gene_info.split("|") # species|gene|uniprotkb_id
+    cols = gene_info.split("|")  # species|gene|uniprotkb_id
     species = cols[0]
 
     # Exit condition (saves compute when there are many rows to process..)
@@ -80,7 +80,8 @@ def parse_gene_info(gene_info, taxon_map, curie_map, fallback_map=None, koza_tra
 
     # Check if gene id can be mapped directly to kg build preffered gene ids
     if gene_split[0] in curie_map:
-        gene = "{}:{}".format(curie_map[gene_split[0]], gene_split[-1]) # We use -1 here to avoid things like MGI=MGI=95886
+        # We use -1 here to avoid things like MGI=MGI=95886
+        gene = "{}:{}".format(curie_map[gene_split[0]], gene_split[-1])
 
     # Otherwise, fall back onto ncbi gene map if possible
     else:
@@ -100,7 +101,6 @@ def parse_gene_info(gene_info, taxon_map, curie_map, fallback_map=None, koza_tra
         # Use uniprotkb id as last resort
         else:
             gene = "{}".format(cols[-1].replace("=", ":"))
-
 
     # Lastly we need to strip version numbers off from ENSEMBL IDs,
     # (e.g. ENSG00000123456.1 => ENSG00000123456)

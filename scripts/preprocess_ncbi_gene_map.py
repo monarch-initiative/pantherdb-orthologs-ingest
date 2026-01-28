@@ -22,6 +22,7 @@ def main():
 
     # Change to project root so relative paths in SQL work correctly
     import os
+
     original_cwd = os.getcwd()
     os.chdir(project_root)
 
@@ -30,8 +31,8 @@ def main():
         sql_content = sql_file.read_text()
 
         print("Preprocessing NCBI gene_info.gz to create gene map...")
-        print(f"Input: data/gene_info.gz")
-        print(f"Output: data/ncbi_gene_map.tsv")
+        print("Input: data/gene_info.gz")
+        print("Output: data/ncbi_gene_map.tsv")
 
         con = duckdb.connect(":memory:")
         con.execute(sql_content)

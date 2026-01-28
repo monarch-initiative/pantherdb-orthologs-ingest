@@ -49,3 +49,7 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test file contains TSV data strings that must remain on single lines
+"tests/test_preprocess_ncbi_gene_map.py" = ["E501"]

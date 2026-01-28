@@ -5,12 +5,10 @@ These tests verify that the DuckDB-based preprocessing produces correct mappings
 from composite keys (taxon_id|identifier) to NCBIGene IDs.
 """
 
-import pytest
-import duckdb
-import gzip
-import tempfile
-import os
 from pathlib import Path
+
+import duckdb
+import pytest
 
 
 @pytest.fixture
@@ -40,12 +38,8 @@ def test_sql_produces_expected_mappings(test_gene_info_tsv, sql_template, tmp_pa
     output_path = tmp_path / "test_output.tsv"
 
     # Adjust SQL for test file (uncompressed TSV)
-    modified_sql = sql_template.replace(
-        "'data/gene_info.gz'",
-        f"'{test_gene_info_tsv}'"
-    ).replace(
-        "'data/ncbi_gene_map.tsv'",
-        f"'{output_path}'"
+    modified_sql = sql_template.replace("'data/gene_info.gz'", f"'{test_gene_info_tsv}'").replace(
+        "'data/ncbi_gene_map.tsv'", f"'{output_path}'"
     )
 
     # Execute the SQL
@@ -89,12 +83,8 @@ def test_sql_removes_ambiguous_keys(tmp_path):
     sql_path = Path(__file__).parent.parent / "scripts" / "preprocess_ncbi_gene_map.sql"
     sql_template = sql_path.read_text()
 
-    modified_sql = sql_template.replace(
-        "'data/gene_info.gz'",
-        f"'{gene_info_path}'"
-    ).replace(
-        "'data/ncbi_gene_map.tsv'",
-        f"'{output_path}'"
+    modified_sql = sql_template.replace("'data/gene_info.gz'", f"'{gene_info_path}'").replace(
+        "'data/ncbi_gene_map.tsv'", f"'{output_path}'"
     )
 
     con = duckdb.connect(":memory:")
@@ -125,12 +115,8 @@ def test_sql_filters_irrelevant_taxons(tmp_path):
     sql_path = Path(__file__).parent.parent / "scripts" / "preprocess_ncbi_gene_map.sql"
     sql_template = sql_path.read_text()
 
-    modified_sql = sql_template.replace(
-        "'data/gene_info.gz'",
-        f"'{gene_info_path}'"
-    ).replace(
-        "'data/ncbi_gene_map.tsv'",
-        f"'{output_path}'"
+    modified_sql = sql_template.replace("'data/gene_info.gz'", f"'{gene_info_path}'").replace(
+        "'data/ncbi_gene_map.tsv'", f"'{output_path}'"
     )
 
     con = duckdb.connect(":memory:")
