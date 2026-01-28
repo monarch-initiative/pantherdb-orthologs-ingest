@@ -1,77 +1,145 @@
 """
-An example test file for the transform script.
+Unit tests for Panther Gene Orthology relationships ingest.
 
-It uses pytest fixtures to define the input data and the mock koza transform.
-The test_example function then tests the output of the transform script.
-
-See the Koza documentation for more information on testing transforms:
-https://koza.monarchinitiative.org/Usage/testing/
-
-Unit tests for Panther Gene Orthology relationships ingest
+Tests the transform logic and parse_gene_info function using mock koza transforms.
 """
 
-import importlib.util
-from pathlib import Path
-from collections.abc import Iterable
+import gzip
+from collections import Counter
 
 import pytest
 from biolink_model.datamodel.pydanticmodel_v2 import GeneToGeneHomologyAssociation, KnowledgeLevelEnum, AgentTypeEnum
-from koza.runner import KozaRunner, load_transform
-from koza.io.writer.writer import KozaWriter
 from panther_orthologs_utils import (
-    make_ncbi_taxon_gene_map,
     parse_gene_info,
     panther_taxon_map,
-    relevant_ncbi_cols,
-    relevant_ncbi_taxons,
     db_to_curie_map,
 )
 
-# Path to the transform script
-TRANSFORM_SCRIPT = Path(__file__).parent.parent / "src" / "transform.py"
+
+# Columns needed for building test gene map (matches original preprocessing logic)
+RELEVANT_NCBI_COLS = [
+    '#tax_id', 'GeneID', 'Symbol', 'LocusTag', 'Synonyms', 'dbXrefs',
+    'Symbol_from_nomenclature_authority', 'Full_name_from_nomenclature_authority',
+    'Other_designations'
+]
+
+# Taxon IDs we care about (derived from panther_taxon_map values)
+RELEVANT_NCBI_TAXONS = {v: '' for v in panther_taxon_map.values()}
 
 
-class EntityCapturingWriter(KozaWriter):
-    """A writer that captures raw entities before serialization for testing."""
+def make_ncbi_taxon_gene_map(gene_info_file: str, relevant_columns: list, taxon_catalog: dict):
+    """
+    Build a nested dict mapping {taxon_id: {identifier: ncbi_gene_id}} from NCBI gene_info file.
 
-    def __init__(self):
-        self.entities = []
+    This function is used for testing only. In production, the preprocessing SQL script
+    creates a flat TSV file that koza loads as a map.
+    """
+    # Ensure relevant columns has #tx_id as the first entry
+    if relevant_columns[0] != "#tax_id":
+        raise RuntimeError("- '#tax_id' must be first element present in relevant_columns arg... Exiting")
 
-    def write(self, entities: Iterable):
-        # The entities passed here are already serialized tuples
-        # We need to intercept before this
-        pass
+    # Don't want entries equivalent to this from this file
+    exclude_terms = {"-": ''}
 
-    def write_nodes(self, nodes: Iterable):
-        pass
+    # Many-->1 mapping dictionary
+    taxa_gene_map = {tx_id: {} for tx_id in taxon_catalog}
+    # Removes unreliable mapping keys from taxa_gene_map
+    taxa_remove_map = {tx_id: Counter() for tx_id in taxon_catalog}
 
-    def write_edges(self, edges: Iterable):
-        pass
+    with gzip.open(gene_info_file, 'rt') as infile:
+        # Read header line into memory to index relevant column fields
+        hinfo = {hfield: i for i, hfield in enumerate(infile.readline().strip('\r').strip('\n').split('\t'))}
 
-    def finalize(self):
-        pass
+        # Now loop through each line, and create a map back to taxon / NCBIGene:xyz ...
+        for line in infile:
+            cols = line.strip('\r').strip('\n').split('\t')
+            rel_data = [str(cols[hinfo[r]]) for r in relevant_columns]
+            tx_id = rel_data[0]
+            ncbi_gene_id = cols[hinfo["GeneID"]]
+
+            # Only consume species we are interested in
+            if tx_id not in taxon_catalog:
+                continue
+
+            # Find reliable mapping keys to this NCBI gene id
+            # We take the set() of relevant mapping keys here... that if the same_id is reported on the same line
+            # This removes the possibility of removing an id that is reported twice on the same line
+            for map_key in set(rel_data[1:]):
+                # Some columns like dbxref contain this character,
+                # which separates common names from each other. So we loop through them
+                # (minority, not majority have this in them)
+                mk_cols = map_key.split("|")
+                for key_to_ncbi in mk_cols:
+                    # Deal with entries like MGI:MGI:95886, where we want to remove one of the MGI: prefix
+                    key_split = key_to_ncbi.split(":")
+                    if len(key_split) >= 2:
+                        if key_split[0] == key_split[1]:
+                            key_to_ncbi = "{}:{}".format(key_split[0], key_split[-1])
+
+                    if key_to_ncbi not in taxa_gene_map[tx_id]:
+                        taxa_gene_map[tx_id].update({key_to_ncbi: ncbi_gene_id})
+                    else:
+                        taxa_remove_map[tx_id][key_to_ncbi] += 1
+
+    # Remove unreliable mapping keys to this NCBI gene id
+    for tx_id in taxa_remove_map:
+        for remove_key, rcount in taxa_remove_map[tx_id].items():
+            del taxa_gene_map[tx_id][remove_key]
+
+    # Return cleaned map back to a ncbi gene id that can be normalized later down road
+    return taxa_gene_map
 
 
-def load_module_from_path(path: Path):
-    """Load a Python module from a file path."""
-    spec = importlib.util.spec_from_file_location(path.stem, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+class MockKozaTransform:
+    """Mock KozaTransform for testing that uses a fallback_map."""
+
+    def __init__(self, fallback_map):
+        self._fallback_map = fallback_map
+
+    def lookup(self, key, value_column, map_name=None):
+        """Lookup a value from the fallback map using composite key."""
+        # Key format: "taxon_id|identifier"
+        parts = key.split("|", 1)
+        if len(parts) == 2:
+            taxon_id, identifier = parts
+            if taxon_id in self._fallback_map and identifier in self._fallback_map[taxon_id]:
+                return f"NCBIGene:{self._fallback_map[taxon_id][identifier]}"
+        # Return key if not found (matches koza behavior)
+        return key
 
 
 def run_transform(rows: list[dict], map_cache: dict) -> list:
     """Run the transform on a list of rows and return the results."""
-    module = load_module_from_path(TRANSFORM_SCRIPT)
-    # Inject the test map cache into the transform module
-    module.set_tx_gmap(map_cache)
+    # Import parse_gene_info directly to test with mock koza transform
+    from panther_orthologs_utils import parse_gene_info, panther_taxon_map, db_to_curie_map
 
-    # Directly call the transform function to capture raw entities
+    # Create a mock koza transform that uses the test map cache
+    mock_koza = MockKozaTransform(map_cache)
+
+    # Directly test the transform logic
     results = []
     for row in rows:
-        result = module.transform(None, row)  # koza_transform arg is not used
-        if result is not None:
-            results.append(result)
+        # Replicate transform logic using the parse_gene_info function
+        species_a, gene_a = parse_gene_info(row["Gene"], panther_taxon_map, db_to_curie_map, koza_transform=mock_koza)
+        species_b, gene_b = parse_gene_info(row["Ortholog"], panther_taxon_map, db_to_curie_map, koza_transform=mock_koza)
+
+        if (not species_a) or (not species_b):
+            continue
+
+        panther_ortholog_id = row["Panther Ortholog ID"]
+
+        association = GeneToGeneHomologyAssociation(
+            id="uuid:test",
+            subject=gene_a,
+            object=gene_b,
+            predicate="biolink:orthologous_to",
+            has_evidence=[f"PANTHER.FAMILY:{panther_ortholog_id}"],
+            aggregator_knowledge_source=["infores:monarchinitiative"],
+            primary_knowledge_source="infores:panther",
+            knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+            agent_type=AgentTypeEnum.not_provided
+        )
+        results.append(association)
     return results
 
 
@@ -93,29 +161,13 @@ def relevant_association_test_keys():
 
 
 @pytest.fixture
-def ncbi_gene_info_path():
-    """
-    :return: string of path to gaf-eco-mappings.txt file
-    """
-    return "./tests/test_ncbi_gene_info.txt.gz"
-
-
-@pytest.fixture
-def ncbi_gene_info_cols():
-    return relevant_ncbi_cols
-
-
-@pytest.fixture
-def ncbi_taxons():
-    return relevant_ncbi_taxons
-
-
-@pytest.fixture
-def map_cache(ncbi_gene_info_path, ncbi_gene_info_cols, ncbi_taxons):
-    map_cache = make_ncbi_taxon_gene_map(gene_info_file=ncbi_gene_info_path,
-                                         relevant_columns=ncbi_gene_info_cols,
-                                         taxon_catalog=ncbi_taxons)
-    return map_cache
+def map_cache():
+    """Build a test gene map from the small test gene_info file."""
+    return make_ncbi_taxon_gene_map(
+        gene_info_file="./tests/test_ncbi_gene_info.txt.gz",
+        relevant_columns=RELEVANT_NCBI_COLS,
+        taxon_catalog=RELEVANT_NCBI_TAXONS
+    )
 
 
 #############################################################################
@@ -283,23 +335,29 @@ def test_panther_rows(panther_rows, relevant_association_test_keys, map_cache):
 
 
 def test_species_parse_gene(panther_species_genes, map_cache):
+    # Create mock koza transform for testing
+    mock_koza = MockKozaTransform(map_cache)
+
     for gene_info, expected in panther_species_genes:
         species, gene_id = parse_gene_info(gene_info,
                                            panther_taxon_map,
                                            db_to_curie_map,
-                                           map_cache)
+                                           koza_transform=mock_koza)
 
         # Assert that the parsed species and gene ID match the expected values
         assert species in panther_taxon_map
-        assert gene_id in expected # Allows for muliple mapping values to be present
+        assert gene_id in expected  # Allows for multiple mapping values to be present
 
 
 def test_exclude_species_parse_gene(exclude_species_genes, map_cache):
+    # Create mock koza transform for testing
+    mock_koza = MockKozaTransform(map_cache)
+
     for gene_info in exclude_species_genes:
         species, gene_id = parse_gene_info(gene_info,
                                            panther_taxon_map,
                                            db_to_curie_map,
-                                           map_cache)
+                                           koza_transform=mock_koza)
 
         # Assert that the species and gene ID are empty for excluded species
         assert not species

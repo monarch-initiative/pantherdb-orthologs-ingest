@@ -18,6 +18,7 @@ dependencies = [
   "koza>=2.0.0",
   "biolink-model>=4.0.0",
   "duckdb>=0.10.2",
+  "kghub-downloader>=0.3.0",
 ]
 
 [dependency-groups]

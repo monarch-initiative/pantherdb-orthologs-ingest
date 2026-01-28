@@ -1,14 +1,13 @@
 name: "panther_genome_orthologs"
 
 reader:
-  name: "panther_orthologs_reader"
   # We expand the ingest to extract orthology data from target species extracted out of "All Orthologs"
   file_archive: "../data/AllOrthologs.tar.gz"
   files:
-    - "../data/AllOrthologs"
+    - "AllOrthologs"  # Relative to archive content, not config file
   format: "csv"
   delimiter: "\t"
-  header: "none"
+  header_mode: none
   columns:
     - "Gene"                                 # species1|DB=id1|protdb=pdbid1
     - "Ortholog"                             # species2|DB=id2|protdb=pdbid2
@@ -17,11 +16,11 @@ reader:
     - "Panther Ortholog ID"                  # panther protein family ID
 
 transform:
-  name: "panther_orthologs_transform"
   mode: "flat"
+  mappings:
+    - "./ncbi_gene_map.yaml"
 
 writer:
-  name: "panther_orthologs_writer"
   node_properties: []
   edge_properties:
     - "id"

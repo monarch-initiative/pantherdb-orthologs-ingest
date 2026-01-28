@@ -4,7 +4,7 @@
 PKG := "src"
 
 # Explicitly enumerate transforms
-TRANSFORMS := "transform"
+TRANSFORMS := "panther_genome_orthologs"
 
 # List all commands
 _default:
@@ -19,15 +19,33 @@ install:
 
 # ============== Ingest Pipeline ==============
 
-# Full pipeline: download -> transform -> postprocess
+# Full pipeline: download -> preprocess -> transform -> postprocess
 [group('ingest')]
-run: download transform-all postprocess
+run: download preprocess transform-all postprocess
     @echo "Done!"
 
-# Download source data
+# Download source data using kghub-downloader
 [group('ingest')]
 download:
-    uv run koza download download.yaml
+    uv run python -c "\
+    import yaml; \
+    from pathlib import Path; \
+    from kghub_downloader.download import http; \
+    from kghub_downloader.model import DownloadableResource, DownloadOptions; \
+    config = yaml.safe_load(open('download.yaml')); \
+    options = DownloadOptions(); \
+    [( \
+        (outfile := Path(DownloadableResource(**item).local_name)), \
+        outfile.parent.mkdir(parents=True, exist_ok=True), \
+        print(f'Downloading {outfile}...'), \
+        http(DownloadableResource(**item), outfile, options) \
+    ) for item in config] \
+    "
+
+# Preprocess: create koza-compatible map files from gene_info.gz
+[group('ingest')]
+preprocess:
+    uv run python scripts/preprocess_ncbi_gene_map.py
 
 # Run all transforms
 [group('ingest')]
