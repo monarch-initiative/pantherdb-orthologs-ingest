@@ -1708,7 +1708,7 @@ dev = [
 requires-dist = [
     { name = "biolink-model", specifier = ">=4.0.0" },
     { name = "duckdb", specifier = ">=0.10.2" },
-    { name = "kghub-downloader", specifier = ">=0.3.0" },
+    { name = "kghub-downloader", specifier = ">=0.4.0" },
     { name = "koza", specifier = ">=2.0.0" },
 ]
 

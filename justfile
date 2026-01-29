@@ -26,21 +26,8 @@ run: download preprocess transform-all postprocess
 
 # Download source data using kghub-downloader
 [group('ingest')]
-download:
-    uv run python -c "\
-    import yaml; \
-    from pathlib import Path; \
-    from kghub_downloader.download import http; \
-    from kghub_downloader.model import DownloadableResource, DownloadOptions; \
-    config = yaml.safe_load(open('download.yaml')); \
-    options = DownloadOptions(); \
-    [( \
-        (outfile := Path(DownloadableResource(**item).local_name)), \
-        outfile.parent.mkdir(parents=True, exist_ok=True), \
-        print(f'Downloading {outfile}...'), \
-        http(DownloadableResource(**item), outfile, options) \
-    ) for item in config] \
-    "
+download: install
+    uv run downloader download.yaml
 
 # Preprocess: create koza-compatible map files from gene_info.gz
 [group('ingest')]
