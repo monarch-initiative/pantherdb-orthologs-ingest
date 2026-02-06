@@ -1,0 +1,23 @@
+# Koza mapping configuration for NCBI gene map
+# This file defines how to load the preprocessed gene map TSV
+# and how to extract key-value pairs for lookups.
+#
+# The map provides lookups of NCBIGene IDs using composite keys
+# of format: taxon|identifier (e.g., "9606|BRCA1" -> "NCBIGene:672")
+
+name: "ncbi_gene"
+
+reader:
+  files:
+    - "../data/ncbi_gene_map.tsv"
+  format: "csv"
+  delimiter: "\t"
+  header_mode: 0
+  columns:
+    - "composite_key"
+    - "ncbi_gene_id"
+
+transform:
+  key: "composite_key"
+  values:
+    - "ncbi_gene_id"

@@ -1,0 +1,35 @@
+name: "panther_genome_orthologs"
+
+reader:
+  # We expand the ingest to extract orthology data from target species extracted out of "All Orthologs"
+  file_archive: "../data/AllOrthologs.tar.gz"
+  files:
+    - "AllOrthologs"  # Relative to archive content, not config file
+  format: "csv"
+  delimiter: "\t"
+  header_mode: none
+  columns:
+    - "Gene"                                 # species1|DB=id1|protdb=pdbid1
+    - "Ortholog"                             # species2|DB=id2|protdb=pdbid2
+    - "Type of ortholog"                     # [LDO, O, P, X ,LDX], Currently unused
+    - "Common ancestor for the orthologs"   # unused
+    - "Panther Ortholog ID"                  # panther protein family ID
+
+transform:
+  mode: "flat"
+  mappings:
+    - "./ncbi_gene_map.yaml"
+
+writer:
+  node_properties: []
+  edge_properties:
+    - "id"
+    - "category"
+    - "subject"
+    - "predicate"
+    - "object"
+    - "has_evidence"
+    - "aggregator_knowledge_source"
+    - "primary_knowledge_source"
+    - "knowledge_level"
+    - "agent_type"
