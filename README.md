@@ -1,49 +1,51 @@
-# pantherdb-orthologs-ingest
+# PantherDB Orthologs
 
-Koza ingest for PantherDB ortholog data, transforming gene orthology relationships into Biolink model format.
-
-## Data Source
-
-[PantherDB](http://www.pantherdb.org/) provides gene orthology data derived from phylogenetic trees. The AllOrthologs file contains pairwise ortholog relationships between genes across multiple species.
+[PantherDB](http://www.pantherdb.org/) (Protein Analysis Through Evolutionary Relationships) provides gene orthology data derived from phylogenetic trees. The AllOrthologs file contains pairwise ortholog relationships between genes across multiple species.
 
 Data is downloaded from: `http://data.pantherdb.org/ftp/ortholog/current_release/AllOrthologs.tar.gz`
 
-Additionally, NCBI gene_info is used for identifier mapping: `https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_info.gz`
+Additionally, [NCBI gene_info](https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_info.gz) is used for identifier mapping when direct database mappings are not available.
 
-## Output
+### Species Included
 
-This ingest produces:
-- **GeneToGeneHomologyAssociation** - Orthology relationships between genes from different species
+- Human (NCBITaxon:9606)
+- Mouse (NCBITaxon:10090)
+- Rat (NCBITaxon:10116)
+- Dog (NCBITaxon:9615)
+- Cow (NCBITaxon:9913)
+- Pig (NCBITaxon:9823)
+- Chicken (NCBITaxon:9031)
+- Frog (NCBITaxon:8364)
+- Zebrafish (NCBITaxon:7955)
+- Fruit fly (NCBITaxon:7227)
+- C. elegans (NCBITaxon:6239)
+- Dictyostelium (NCBITaxon:44689)
+- Aspergillus nidulans (NCBITaxon:227321)
+- Fission yeast (NCBITaxon:4896)
+- Baker's yeast (NCBITaxon:4932)
 
-## Supported Species
+## Ortholog Associations
 
-The ingest processes orthology data for these species:
-- Human, Mouse, Rat
-- Zebrafish, Chicken, Xenopus
-- Dog, Cow, Pig
-- Fly, Worm, Yeast
-- Dictyostelium, Schizosaccharomyces pombe, Aspergillus
+Gene identifiers from the PantherDB file are mapped to standard CURIE namespaces (HGNC, MGI, RGD, SGD, ZFIN, FB, WB, PomBase, dictyBase, Xenbase, ENSEMBL). When a direct mapping is not available, NCBI gene IDs are used as a fallback via a lookup table, with UniProtKB as a last resort. ENSEMBL version numbers are stripped (e.g. `ENSG00000123456.1` becomes `ENSG00000123456`).
 
-## Usage
+Rows where either species is not in the supported taxon set are skipped.
 
-```bash
-# Install dependencies
-just install
+**Biolink Captured:**
 
-# Run full pipeline
-just run
+- `biolink:GeneToGeneHomologyAssociation`
+    - id (UUID)
+    - subject (gene CURIE)
+    - predicate (`biolink:orthologous_to`)
+    - object (gene CURIE)
+    - has_evidence (PANTHER.FAMILY ID)
+    - aggregator_knowledge_source (`["infores:monarchinitiative"]`)
+    - primary_knowledge_source (`infores:panther`)
+    - knowledge_level (`knowledge_assertion`)
+    - agent_type (`not_provided`)
 
-# Or run steps individually
-just download      # Download PantherDB data
-just transform-all # Run Koza transform
-just test          # Run tests
-```
+## Citation
 
-## Requirements
-
-- Python 3.10+
-- [uv](https://github.com/astral-sh/uv) package manager
-- [just](https://github.com/casey/just) command runner
+Thomas PD, Ebert D, Muruganujan A, Mushayahama T, Albou LP, Mi H. PANTHER: Making genome-scale phylogenetics accessible to all. Protein Science. 2022;31(1):8-22. doi: 10.1002/pro.4218. PMID: 34717010
 
 ## License
 
