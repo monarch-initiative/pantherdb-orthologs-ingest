@@ -11,8 +11,6 @@ _src_dir = Path(__file__).parent
 if str(_src_dir) not in sys.path:
     sys.path.insert(0, str(_src_dir))
 
-import uuid  # noqa: E402
-
 import koza  # noqa: E402
 from biolink_model.datamodel.pydanticmodel_v2 import (  # noqa: E402
     AgentTypeEnum,
@@ -47,9 +45,8 @@ def transform(koza_transform, row: dict) -> list[GeneToGeneHomologyAssociation]:
     panther_ortholog_id = row["Panther Ortholog ID"]
     predicate = "biolink:orthologous_to"
 
-    # Generate our association object (uuid4 for reliable uniqueness across environments)
+    # Generate our association object (id is derived deterministically by biolink-model)
     association = GeneToGeneHomologyAssociation(
-        id="uuid:{}".format(str(uuid.uuid4())),
         subject=gene_a,
         object=gene_b,
         predicate=predicate,
